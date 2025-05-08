@@ -14,12 +14,12 @@ from bot.helpers.spotify.handler import spotify_dl
 
 @Client.on_message(filters.command(CMD.DOWNLOAD))
 async def download_track(bot, update):
-    # Check if update is Message or CallbackQuery
+    # Extract message from update, handle CallbackQuery or invalid update
     message = update if isinstance(update, Message) else (update.message if isinstance(update, CallbackQuery) else None)
-    if not message:
-        LOGGER.error("Invalid update type: No message available")
+    if not message or not hasattr(message, 'chat') or not hasattr(message, 'id'):
+        LOGGER.error(f"Invalid update type or message: {update}")
         return await bot.send_message(
-            chat_id=update.chat.id if hasattr(update, 'chat') else update.from_user.id,
+            chat_id=getattr(update, 'chat', {}).get('id', update.from_user.id if hasattr(update, 'from_user') else None),
             text="Invalid command usage. Please use this command with a valid message.",
             reply_to_message_id=getattr(update, 'id', None)
         )
@@ -38,7 +38,7 @@ async def download_track(bot, update):
         else:
             link = message.text.split(" ", maxsplit=1)[1]
             reply_to_id = message.id
-    except:
+    except (IndexError, AttributeError):
         return await bot.send_message(
             chat_id=message.chat.id,
             text=lang.select.ERR_NO_LINK,
@@ -93,10 +93,10 @@ async def download_track(bot, update):
                 reply_to_message_id=message.id
             )
         except Exception as e:
-            LOGGER.warning(e)
+            LOGGER.error(f"Download error: {str(e)}", exc_info=True)
             await bot.send_message(
                 chat_id=message.chat.id,
-                text=str(e),
+                text=f"Error: {str(e)}",
                 reply_to_message_id=message.id
             )
         user_settings.set_var(message.chat.id, "ON_TASK", False)
