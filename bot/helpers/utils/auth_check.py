@@ -12,8 +12,6 @@ allowed_chats = []
 allowed_users = []
 admins = []
 
-# NOOB WAY TO HANDLE BOTH ENV AND DB XD
-
 async def get_chats(return_msg=False):
     # CHATS 
     database_chats = chats_db.get_chats()
@@ -95,7 +93,11 @@ async def check_id(id=None, message=None, restricted=False):
                 await message.reply_text(lang.select.ANTI_SPAM_WAIT)
                 return False
 
+        # Additional validation for public bot
         if Config.IS_BOT_PUBLIC == "True":
+            if user_id is None and chat_id not in all_list:
+                LOGGER.warning("Public bot access attempted without user info and chat not in allowed list")
+                return False
             return True
         elif id_to_check in all_list:
             return True
@@ -131,4 +133,4 @@ async def checkLogins(provider):
             return True, lang.select.SPOTIFY_NOT_AUTH
         return False, None
     else:
-        return False, None  # Default case to avoid unexpected behavior
+        return False, None
