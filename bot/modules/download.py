@@ -62,22 +62,30 @@ async def download_track(bot, update):
                 reply_to_message_id=message.id
             )
 
-        LOGGER.info(f"Download Initiated By - {message.from_user.first_name}")
+        # Check if from_user exists before logging
+        user_name = message.from_user.first_name if message.from_user else "Unknown User"
+        LOGGER.info(f"Download Initiated By - {user_name}")
+
         msg = await bot.send_message(
             chat_id=message.chat.id,
             text=lang.select.START_DOWNLOAD,
             reply_to_message_id=message.id
         )
         botmsg_id = msg.id
-        if message.from_user.username:
-            u_name = f"@{message.from_user.username}"
+
+        # Handle username or first_name for u_name
+        if message.from_user:
+            if message.from_user.username:
+                u_name = f"@{message.from_user.username}"
+            else:
+                u_name = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.first_name}</a>'
         else:
-            u_name = f'<a href="tg://user?id={message.from_user.id}">{message.from_user.first_name}</a>'
+            u_name = "Anonymous User"
 
         user_settings.set_var(message.chat.id, "ON_TASK", True)
         try:
             if provider == "tidal":
-                await startTidal(link, bot, message.chat.id, reply_to_id, message.from_user.id, u_name)
+                await startTidal(link, bot, message.chat.id, reply_to_id, message.from_user.id if message.from_user else None, u_name)
             elif provider == "kkbox":
                 await kkbox.start(link, bot, message, reply_to_id, u_name)
             elif provider == 'qobuz':
