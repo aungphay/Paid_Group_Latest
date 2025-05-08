@@ -1,8 +1,12 @@
 from bot import Config
+import logging
 
 from bot.helpers.translations import lang
 from bot.helpers.tidal_func.events import checkLoginTidal
 from bot.helpers.database.postgres_impl import users_db, admins_db, chats_db, user_settings, set_db
+
+# Initialize logging
+LOGGER = logging.getLogger(__name__)
 
 allowed_chats = []
 allowed_users = []
@@ -17,18 +21,16 @@ async def get_chats(return_msg=False):
         if chat not in allowed_chats:
             allowed_chats.append(chat)
     for chat in database_chats:
-        if chat != None:
-            if chat[0] not in allowed_chats and chat[0] != None:
-                allowed_chats.append(chat[0])
+        if chat is not None and chat[0] is not None and chat[0] not in allowed_chats:
+            allowed_chats.append(chat[0])
     # ADMINS
     database_admins = admins_db.get_admins()
     for admin in Config.ADMINS:
         if admin not in admins:
             admins.append(admin)
     for admin in database_admins:
-        if admin != None:
-            if admin[0] not in admins and admin[0] != None:
-                admins.append(admin[0])
+        if admin is not None and admin[0] is not None and admin[0] not in admins:
+            admins.append(admin[0])
     # USERS
     if not Config.IS_BOT_PUBLIC == "True":
         database_users = users_db.get_users()
@@ -39,9 +41,8 @@ async def get_chats(return_msg=False):
                 if user not in allowed_users:
                     allowed_users.append(user)
             for user in database_users:
-                if user != None:
-                    if user[0] not in allowed_users and user[0] != None:
-                        allowed_users.append(user[0])
+                if user is not None and user[0] is not None and user[0] not in allowed_users:
+                    allowed_users.append(user[0])
 
     if return_msg:
         msg = "<b>ALLOWED CHATS</b>"
@@ -71,21 +72,32 @@ async def check_id(id=None, message=None, restricted=False):
         else:
             return False
     else:
+        # Ensure message is valid
+        if not message or not hasattr(message, 'chat') or not hasattr(message, 'from_user'):
+            LOGGER.warning("Invalid message object or missing attributes")
+            return False
+
         # Seperating Group and PM
-        if message.from_user.id != message.chat.id:
-            id = message.chat.id
+        user_id = message.from_user.id if message.from_user else None
+        chat_id = message.chat.id
+
+        if user_id is None:
+            LOGGER.warning("No user info available for this message, using chat ID")
+            id_to_check = chat_id
+        elif user_id != chat_id:
+            id_to_check = chat_id  # Group chat case
         else:
-            id = message.from_user.id
+            id_to_check = user_id  # Private chat case
 
         if Config.ANIT_SPAM_MODE == "True":
-            check = user_settings.get_var(id, "ON_TASK")      
+            check = user_settings.get_var(id_to_check, "ON_TASK")
             if check:
                 await message.reply_text(lang.select.ANTI_SPAM_WAIT)
-                return False          
+                return False
 
         if Config.IS_BOT_PUBLIC == "True":
             return True
-        elif id in all_list:
+        elif id_to_check in all_list:
             return True
         else:
             return False
@@ -119,4 +131,4 @@ async def checkLogins(provider):
             return True, lang.select.SPOTIFY_NOT_AUTH
         return False, None
     else:
-        pass
+        return False, None  # Default case to avoid unexpected behavior
